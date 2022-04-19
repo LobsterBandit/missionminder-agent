@@ -1,0 +1,30 @@
+services:
+  agent:
+    image: lobsterbandit/dev-golang:latest
+    entrypoint: ""
+    command: bash
+    stdin_open: true
+    tty: true
+    ports:
+      - "5000"
+    volumes:
+      - ./:/usr/src
+      - wow:/wow
+    environment:
+      - API_PORT=5000
+  ui:
+    image: node:latest
+    user: node
+    command: bash
+    stdin_open: true
+    tty: true
+    working_dir: /usr/src
+    ports:
+      - "3000"
+    volumes:
+      - ./ui:/usr/src
+    environment:
+      - API_URL=http://agent:5000
+
+volumes:
+  wow:
