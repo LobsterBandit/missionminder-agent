@@ -9,7 +9,7 @@ services:
       - "5000"
     volumes:
       - ./:/usr/src
-      - wow:/wow
+      - "/mnt/c/Program Files (x86)/World of Warcraft:/wow"
     environment:
       - API_PORT=5000
   ui:
@@ -25,6 +25,3 @@ services:
       - ./ui:/usr/src
     environment:
       - API_URL=http://agent:5000
-
-volumes:
-  wow:

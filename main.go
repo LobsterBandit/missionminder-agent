@@ -2,37 +2,37 @@ package main
 
 import (
 	"log"
-
-	"github.com/fsnotify/fsnotify"
 )
-
-const svPath = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/MissionMinder.lua"
 
 func main() {
 	log.Println("missionminder-agent starting")
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
+	sv := &SavedVariables{
+		File: "MissionMinder.lua",
+		Data: make(chan string),
 	}
-	defer watcher.Close()
 
-	done := make(chan bool)
+	// read initial sv contents
+	go func() {
+		data, err := sv.read()
+		if err != nil {
+			log.Fatalln(err)
+		}
+		log.Println("data:", len(data))
+	}()
+
+	// listen for new sv data
 	go func() {
 		for {
 			select {
-			case event := <-watcher.Events:
-				log.Printf("event:%s,%s", event.Name, event.Op)
-			case err := <-watcher.Errors:
-				log.Println("error:", err)
+			case data := <-sv.Data:
+				log.Println("data:", len(data))
 			}
 		}
 	}()
 
-	err = watcher.Add(svPath)
-	if err != nil {
-		log.Fatal(err)
+	// watch sv file for changes
+	if err := sv.watch(); err != nil {
+		log.Println(err)
 	}
-
-	<-done
 }

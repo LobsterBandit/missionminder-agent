@@ -2,6 +2,6 @@ module github.com/lobsterbandit/missionminder-agent
 
 go 1.18
 
-require github.com/fsnotify/fsnotify v1.5.1
+require github.com/radovskyb/watcher v1.0.7
 
-require golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+replace github.com/radovskyb/watcher => github.com/circleci/watcher v1.99.1
