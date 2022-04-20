@@ -14,7 +14,7 @@ func main() {
 
 	// read initial sv contents
 	go func() {
-		data, err := sv.read()
+		data, err := sv.getAddonData()
 		if err != nil {
 			log.Fatalln(err)
 		}

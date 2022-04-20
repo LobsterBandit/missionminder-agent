@@ -1,17 +1,26 @@
 package main
 
 import (
+	"bytes"
+	"compress/zlib"
+	"encoding/base64"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"time"
 
 	"github.com/radovskyb/watcher"
 )
 
 const (
-	svDir = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/"
+	svDir         = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/"
+	exportPattern = `\[\"export\"\] = \"(.*)\",`
 )
+
+var exportRegex = regexp.MustCompile(exportPattern)
 
 type SavedVariables struct {
 	File string
@@ -34,14 +43,9 @@ func (sv *SavedVariables) watch() error {
 		for {
 			select {
 			case event := <-w.Event:
-				log.Println("event:", event)
-				data, err := sv.read()
-				if err != nil {
-					log.Println("error:", err)
-				}
-				sv.Data <- data
+				sv.handleWatchEvent(event)
 			case err := <-w.Error:
-				log.Println("error:", err)
+				log.Println("watcher error:", err)
 			case <-w.Closed:
 				return
 			}
@@ -57,4 +61,62 @@ func (sv *SavedVariables) watch() error {
 	}
 
 	return nil
+}
+
+func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
+	log.Println("watch event:", e)
+
+	data, err := sv.getAddonData()
+	if err != nil {
+		log.Println("error handling watch event:", err)
+		return
+	}
+
+	sv.Data <- data
+}
+
+func (sv *SavedVariables) getAddonData() (string, error) {
+	rawData, err := sv.read()
+	if err != nil {
+		return "", fmt.Errorf("error reading file: %w", err)
+	}
+
+	b64z := extract(rawData)
+	zData, err := decode(b64z)
+	if err != nil {
+		return "", fmt.Errorf("error decoding data: %w", err)
+	}
+
+	data, err := decompress(zData)
+	if err != nil {
+		return "", fmt.Errorf("error decompressing data: %w", err)
+	}
+
+	return data, nil
+}
+
+func extract(data string) string {
+	match := exportRegex.FindStringSubmatch(data)
+	if match == nil {
+		return ""
+	}
+	return match[1]
+}
+
+func decode(b64 string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(b64)
+}
+
+func decompress(data []byte) (string, error) {
+	reader, err := zlib.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+
+	result, err := io.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+
+	return string(result), nil
 }
