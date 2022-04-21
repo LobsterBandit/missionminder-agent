@@ -9,7 +9,7 @@ func main() {
 
 	sv := &SavedVariables{
 		File: "MissionMinder.lua",
-		Data: make(chan string),
+		Data: make(chan *AddonData),
 	}
 
 	// read initial sv contents
@@ -18,7 +18,10 @@ func main() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		log.Println("data:", len(data))
+		log.Printf("data: %d characters, %d active missions, %d available missions\n",
+			len(data.Characters),
+			data.numMissionsActive(),
+			data.numMissionsAvailable())
 	}()
 
 	// listen for new sv data
@@ -26,7 +29,10 @@ func main() {
 		for {
 			select {
 			case data := <-sv.Data:
-				log.Println("data:", len(data))
+				log.Printf("data: %d characters, %d active missions, %d available missions\n",
+					len(data.Characters),
+					data.numMissionsActive(),
+					data.numMissionsAvailable())
 			}
 		}
 	}()

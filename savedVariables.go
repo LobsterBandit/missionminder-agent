@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -24,16 +25,15 @@ var exportRegex = regexp.MustCompile(exportPattern)
 
 type SavedVariables struct {
 	File string
-	Data chan string
+	Data chan *AddonData
 }
 
 func (sv *SavedVariables) path() string {
 	return path.Join(svDir, sv.File)
 }
 
-func (sv *SavedVariables) read() (string, error) {
-	data, err := os.ReadFile(sv.path())
-	return string(data), err
+func (sv *SavedVariables) read() ([]byte, error) {
+	return os.ReadFile(sv.path())
 }
 
 func (sv *SavedVariables) watch() error {
@@ -75,27 +75,39 @@ func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
 	sv.Data <- data
 }
 
-func (sv *SavedVariables) getAddonData() (string, error) {
+func (sv *SavedVariables) getContents() ([]byte, error) {
 	rawData, err := sv.read()
 	if err != nil {
-		return "", fmt.Errorf("error reading file: %w", err)
+		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
-	b64z := extract(rawData)
+	b64z := extractExport(string(rawData))
 	zData, err := decode(b64z)
 	if err != nil {
-		return "", fmt.Errorf("error decoding data: %w", err)
+		return nil, fmt.Errorf("error decoding data: %w", err)
 	}
 
 	data, err := decompress(zData)
 	if err != nil {
-		return "", fmt.Errorf("error decompressing data: %w", err)
+		return nil, fmt.Errorf("error decompressing data: %w", err)
 	}
 
 	return data, nil
 }
 
-func extract(data string) string {
+func (sv *SavedVariables) getAddonData() (*AddonData, error) {
+	contents, err := sv.getContents()
+	if err != nil {
+		return nil, err
+	}
+	data := &AddonData{}
+	if err = json.Unmarshal(contents, data); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func extractExport(data string) string {
 	match := exportRegex.FindStringSubmatch(data)
 	if match == nil {
 		return ""
@@ -107,16 +119,16 @@ func decode(b64 string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(b64)
 }
 
-func decompress(data []byte) (string, error) {
+func decompress(data []byte) ([]byte, error) {
 	reader, err := zlib.NewReader(bytes.NewReader(data))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	result, err := io.ReadAll(reader)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return string(result), nil
+	return result, nil
 }

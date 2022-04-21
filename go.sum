@@ -1,2 +1,4 @@
 github.com/circleci/watcher v1.99.1 h1:5iSt7iskJ9SwkO33Bc0H3zoQ7rcMR5irMx0tkA7ErWw=
 github.com/circleci/watcher v1.99.1/go.mod h1:i+XxflwjsNvomHPoxt5Z2f+Q3wukeXcnzmyAhgiipQs=
+golang.org/x/exp v0.0.0-20220414153411-bcd21879b8fd h1:zVFyTKZN/Q7mNRWSs1GOYnHM9NiFSJ54YVRsD0rNWT4=
+golang.org/x/exp v0.0.0-20220414153411-bcd21879b8fd/go.mod h1:lgLbSvA5ygNOMpwM/9anMpWVlVJ7Z+cHWq/eFuinpGE=
