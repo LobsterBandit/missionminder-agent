@@ -18,10 +18,17 @@ func main() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		log.Printf("data: %d characters, %d active missions, %d available missions\n",
+		log.Printf("data: %d characters, %d complete / %d active\n",
 			len(data.Characters),
-			data.numMissionsActive(),
-			data.numMissionsAvailable())
+			data.totalMissionsComplete(),
+			data.totalMissionsActive())
+
+		for key, char := range data.Characters {
+			log.Printf("\t%s: %d / %d\n",
+				key,
+				len(data.missionsComplete(char)),
+				len(data.missionsActive(char)))
+		}
 	}()
 
 	// listen for new sv data
@@ -29,10 +36,17 @@ func main() {
 		for {
 			select {
 			case data := <-sv.Data:
-				log.Printf("data: %d characters, %d active missions, %d available missions\n",
+				log.Printf("data: %d characters, %d complete / %d active\n",
 					len(data.Characters),
-					data.numMissionsActive(),
-					data.numMissionsAvailable())
+					data.totalMissionsComplete(),
+					data.totalMissionsActive())
+
+				for key, char := range data.Characters {
+					log.Printf("\t%s: %d / %d\n",
+						key,
+						len(data.missionsComplete(char)),
+						len(data.missionsActive(char)))
+				}
 			}
 		}
 	}()
