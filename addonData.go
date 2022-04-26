@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"golang.org/x/exp/maps"
@@ -163,6 +164,23 @@ func (ad *AddonData) totalMissionsComplete() int {
 		complete += len(ad.missionsComplete(char))
 	}
 	return complete
+}
+
+func (ad *AddonData) print() {
+	log.Printf("%d characters, %d complete / %d active\n",
+		len(ad.Characters),
+		ad.totalMissionsComplete(),
+		ad.totalMissionsActive())
+
+	for key, char := range ad.Characters {
+		if char.Level != 60 {
+			continue
+		}
+		log.Printf("\t%-40s %2d / %2d\n",
+			key,
+			len(ad.missionsComplete(char)),
+			len(ad.missionsActive(char)))
+	}
 }
 
 // account.realm.character

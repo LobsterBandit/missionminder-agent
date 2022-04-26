@@ -24,8 +24,9 @@ const (
 var exportRegex = regexp.MustCompile(exportPattern)
 
 type SavedVariables struct {
-	File string
-	Data chan *AddonData
+	File    string
+	Data    chan *AddonData
+	watcher *watcher.Watcher
 }
 
 func (sv *SavedVariables) path() string {
@@ -37,26 +38,26 @@ func (sv *SavedVariables) read() ([]byte, error) {
 }
 
 func (sv *SavedVariables) watch() error {
-	w := watcher.New()
+	sv.watcher = watcher.New()
 
 	go func() {
 		for {
 			select {
-			case event := <-w.Event:
+			case event := <-sv.watcher.Event:
 				sv.handleWatchEvent(event)
-			case err := <-w.Error:
+			case err := <-sv.watcher.Error:
 				log.Println("watcher error:", err)
-			case <-w.Closed:
+			case <-sv.watcher.Closed:
 				return
 			}
 		}
 	}()
 
-	if err := w.Add(sv.path()); err != nil {
+	if err := sv.watcher.Add(sv.path()); err != nil {
 		return err
 	}
 
-	if err := w.Start(time.Millisecond * 100); err != nil {
+	if err := sv.watcher.Start(time.Millisecond * 100); err != nil {
 		return err
 	}
 
@@ -105,6 +106,10 @@ func (sv *SavedVariables) getAddonData() (*AddonData, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func (sv *SavedVariables) refresh() {
+	sv.watcher.TriggerEvent(watcher.Write, sv.watcher.WatchedFiles()[sv.path()])
 }
 
 func extractExport(data string) string {

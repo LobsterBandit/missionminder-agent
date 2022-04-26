@@ -2,7 +2,10 @@ package main
 
 import (
 	"log"
+	"time"
 )
+
+const RECALC_SECONDS int64 = 30
 
 func main() {
 	log.Println("missionminder-agent starting")
@@ -12,41 +15,22 @@ func main() {
 		Data: make(chan *AddonData),
 	}
 
-	// read initial sv contents
 	go func() {
+		// read initial sv contents on startup
 		data, err := sv.getAddonData()
 		if err != nil {
 			log.Fatalln(err)
 		}
-		log.Printf("data: %d characters, %d complete / %d active\n",
-			len(data.Characters),
-			data.totalMissionsComplete(),
-			data.totalMissionsActive())
+		data.print()
 
-		for key, char := range data.Characters {
-			log.Printf("\t%s: %d / %d\n",
-				key,
-				len(data.missionsComplete(char)),
-				len(data.missionsActive(char)))
-		}
-	}()
-
-	// listen for new sv data
-	go func() {
 		for {
 			select {
-			case data := <-sv.Data:
-				log.Printf("data: %d characters, %d complete / %d active\n",
-					len(data.Characters),
-					data.totalMissionsComplete(),
-					data.totalMissionsActive())
-
-				for key, char := range data.Characters {
-					log.Printf("\t%s: %d / %d\n",
-						key,
-						len(data.missionsComplete(char)),
-						len(data.missionsActive(char)))
-				}
+			// listen for sv data
+			case data = <-sv.Data:
+				data.print()
+			// refresh every X seconds to recalculate times
+			case <-time.After(time.Second * time.Duration(RECALC_SECONDS)):
+				data.print()
 			}
 		}
 	}()
