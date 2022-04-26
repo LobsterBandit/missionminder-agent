@@ -12,6 +12,7 @@ services:
       - "/mnt/c/Program Files (x86)/World of Warcraft:/wow"
     environment:
       - API_PORT=5000
+      - TZ=US/Eastern
   ui:
     image: node:latest
     user: node
