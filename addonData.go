@@ -69,7 +69,7 @@ type MissionDetail struct {
 	EncounterIconInfo           EncounterIconInfo
 	Followers                   []string
 	InProgress                  bool
-	OvermaxRewards              []json.RawMessage
+	OvermaxRewards              []*json.RawMessage
 	Xp                          int
 	MissionEndTime              int
 	IsMaxLevel                  bool
@@ -89,10 +89,10 @@ type MissionDetail struct {
 	CostCurrencyTypesID         int
 	CharText                    string
 	TimeLeft                    string
-	Rewards                     []json.RawMessage // one of a few reward types -- currency, item, xp
+	Rewards                     []*json.RawMessage // one of a few reward types -- currency, item, xp
 	MapPosY                     float64
 	Type                        string
-	FollowerInfo                map[string]json.RawMessage
+	FollowerInfo                map[string]*json.RawMessage
 	TimeLeftSeconds             int
 	RequiredSuccessChance       int
 	BaseCost                    int
@@ -110,7 +110,7 @@ type MissionDetail struct {
 
 type AddonData struct {
 	Characters map[string]CharacterDetail
-	Missions   map[string][]MissionDetail
+	Missions   map[string][]*MissionDetail
 }
 
 func (ad *AddonData) characterKeys() []string {
@@ -119,12 +119,12 @@ func (ad *AddonData) characterKeys() []string {
 	return chars
 }
 
-func (ad *AddonData) getMissions(char CharacterDetail) []MissionDetail {
+func (ad *AddonData) getMissions(char CharacterDetail) []*MissionDetail {
 	return ad.Missions[missionKey(char)]
 }
 
-func (ad *AddonData) getMissionsOfType(char CharacterDetail, missionType GarrisonFollowerType) []MissionDetail {
-	missions := make([]MissionDetail, 0)
+func (ad *AddonData) getMissionsOfType(char CharacterDetail, missionType GarrisonFollowerType) []*MissionDetail {
+	missions := make([]*MissionDetail, 0)
 	for _, m := range ad.Missions[missionKey(char)] {
 		if m.FollowerTypeID == missionType {
 			missions = append(missions, m)
@@ -133,8 +133,8 @@ func (ad *AddonData) getMissionsOfType(char CharacterDetail, missionType Garriso
 	return missions
 }
 
-func (ad *AddonData) missionsActive(char CharacterDetail) []MissionDetail {
-	active := make([]MissionDetail, 0)
+func (ad *AddonData) missionsActive(char CharacterDetail) []*MissionDetail {
+	active := make([]*MissionDetail, 0)
 	for _, m := range ad.getMissionsOfType(char, FollowerType_9_0) {
 		if m.InProgress {
 			active = append(active, m)
@@ -143,8 +143,8 @@ func (ad *AddonData) missionsActive(char CharacterDetail) []MissionDetail {
 	return active
 }
 
-func (ad *AddonData) missionsComplete(char CharacterDetail) []MissionDetail {
-	complete := make([]MissionDetail, 0)
+func (ad *AddonData) missionsComplete(char CharacterDetail) []*MissionDetail {
+	complete := make([]*MissionDetail, 0)
 	for _, m := range ad.getMissionsOfType(char, FollowerType_9_0) {
 		if (m.MissionEndTime - int(time.Now().Unix())) < 0 {
 			complete = append(complete, m)
