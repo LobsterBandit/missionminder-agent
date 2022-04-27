@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"golang.org/x/exp/maps"
@@ -112,8 +113,10 @@ type AddonData struct {
 	Missions   map[string][]MissionDetail
 }
 
-func (ad *AddonData) characters() []string {
-	return maps.Keys(ad.Characters)
+func (ad *AddonData) characterKeys() []string {
+	chars := maps.Keys(ad.Characters)
+	sort.Strings(chars)
+	return chars
 }
 
 func (ad *AddonData) getMissions(char CharacterDetail) []MissionDetail {
@@ -172,7 +175,8 @@ func (ad *AddonData) print() {
 		ad.totalMissionsComplete(),
 		ad.totalMissionsActive())
 
-	for key, char := range ad.Characters {
+	for _, key := range ad.characterKeys() {
+		char := ad.Characters[key]
 		if char.Level != 60 {
 			continue
 		}
