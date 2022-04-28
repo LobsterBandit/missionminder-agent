@@ -24,9 +24,19 @@ const (
 var exportRegex = regexp.MustCompile(exportPattern)
 
 type SavedVariables struct {
-	File    string
+	Current *AddonData
 	Data    chan *AddonData
+	File    string
 	watcher *watcher.Watcher
+}
+
+func NewSV(name string) *SavedVariables {
+	return &SavedVariables{
+		File:    name,
+		Current: &AddonData{},
+		Data:    make(chan *AddonData),
+		watcher: watcher.New(),
+	}
 }
 
 func (sv *SavedVariables) path() string {
@@ -38,8 +48,6 @@ func (sv *SavedVariables) read() ([]byte, error) {
 }
 
 func (sv *SavedVariables) watch() error {
-	sv.watcher = watcher.New()
-
 	go func() {
 		for {
 			select {
@@ -63,13 +71,14 @@ func (sv *SavedVariables) watch() error {
 func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
 	log.Println("watch event:", e)
 
-	data, err := sv.getAddonData()
+	_, err := sv.loadAddonData()
 	if err != nil {
+		sv.Current = nil
 		log.Println("error handling watch event:", err)
 		return
 	}
 
-	sv.Data <- data
+	sv.Data <- sv.Current
 }
 
 func (sv *SavedVariables) getContents() ([]byte, error) {
@@ -92,16 +101,15 @@ func (sv *SavedVariables) getContents() ([]byte, error) {
 	return data, nil
 }
 
-func (sv *SavedVariables) getAddonData() (*AddonData, error) {
+func (sv *SavedVariables) loadAddonData() (*AddonData, error) {
 	contents, err := sv.getContents()
 	if err != nil {
 		return nil, err
 	}
-	data := &AddonData{}
-	if err = json.Unmarshal(contents, data); err != nil {
+	if err = json.Unmarshal(contents, sv.Current); err != nil {
 		return nil, err
 	}
-	return data, nil
+	return sv.Current, nil
 }
 
 func (sv *SavedVariables) refresh() {

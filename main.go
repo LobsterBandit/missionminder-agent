@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
+	"os/signal"
 	"time"
 )
 
@@ -21,38 +23,27 @@ func flushTimer(t *time.Timer) {
 func main() {
 	log.Println("missionminder-agent starting")
 
-	sv := &SavedVariables{
-		File: "MissionMinder.lua",
-		Data: make(chan *AddonData),
-	}
+	sv := NewSV("MissionMinder.lua")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	go func(ctx context.Context) {
-		// read initial sv contents on startup
-		data, err := sv.getAddonData()
-		if err != nil {
-			log.Fatalln(err)
-		}
-		data.print()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	done := make(chan bool, 1)
+	go func() {
+		defer close(done)
 
 		refreshDuration := time.Second * time.Duration(RECALC_SECONDS)
 		log.Println("starting refresh timer:", refreshDuration)
 		refreshTimer := time.NewTimer(refreshDuration)
-		// defer refreshTimer.Stop()
 		for {
-			// log.Println("resetting refresh timer to", refreshDuration)
-			// refreshTimer.Reset(refreshDuration)
 			select {
 			// listen for sv data
-			case data = <-sv.Data:
+			case data := <-sv.Data:
 				log.Println("new data received")
-				data.print()
 				flushTimer(refreshTimer)
+				data.print()
 			// refresh every X seconds to recalculate times
 			case <-refreshTimer.C:
-				// case <-time.After(refreshDuration):
 				log.Println("refreshing calculations")
-				data.print()
+				sv.Current.print()
 			case <-ctx.Done():
 				log.Println("received cancel signal")
 				flushTimer(refreshTimer)
@@ -61,11 +52,32 @@ func main() {
 			log.Println("resetting refresh timer:", refreshDuration)
 			refreshTimer.Reset(refreshDuration)
 		}
-	}(ctx)
+	}()
 
 	// setup pprof listener
 	go func() {
 		log.Println(http.ListenAndServe(":8081", nil))
+	}()
+
+	closed := make(chan bool, 1)
+	go func() {
+		<-ctx.Done()
+		log.Printf("terminating: %v\n", ctx.Err())
+		sv.watcher.Close()
+		<-done
+		log.Println("watcher closed")
+		close(closed)
+	}()
+
+	go func() {
+		// read initial sv contents on startup
+		_, err := sv.loadAddonData()
+		if err != nil {
+			log.Println(err)
+			cancel()
+			return
+		}
+		sv.Current.print()
 	}()
 
 	// watch sv file for changes
@@ -74,5 +86,6 @@ func main() {
 		cancel()
 	}
 
+	<-closed
 	log.Println("missionminder-agent exiting...")
 }
