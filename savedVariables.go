@@ -71,8 +71,7 @@ func (sv *SavedVariables) watch() error {
 func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
 	log.Println("watch event:", e)
 
-	_, err := sv.loadAddonData()
-	if err != nil {
+	if err := sv.loadAddonData(); err != nil {
 		sv.Current = nil
 		log.Println("error handling watch event:", err)
 		return
@@ -101,15 +100,15 @@ func (sv *SavedVariables) getContents() ([]byte, error) {
 	return data, nil
 }
 
-func (sv *SavedVariables) loadAddonData() (*AddonData, error) {
+func (sv *SavedVariables) loadAddonData() error {
 	contents, err := sv.getContents()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err = json.Unmarshal(contents, sv.Current); err != nil {
-		return nil, err
+		return err
 	}
-	return sv.Current, nil
+	return nil
 }
 
 func (sv *SavedVariables) refresh() {

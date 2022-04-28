@@ -71,8 +71,7 @@ func main() {
 
 	go func() {
 		// read initial sv contents on startup
-		_, err := sv.loadAddonData()
-		if err != nil {
+		if err := sv.loadAddonData(); err != nil {
 			log.Println(err)
 			cancel()
 			return
