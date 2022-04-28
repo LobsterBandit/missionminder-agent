@@ -57,11 +57,7 @@ func (sv *SavedVariables) watch() error {
 		return err
 	}
 
-	if err := sv.watcher.Start(time.Millisecond * 100); err != nil {
-		return err
-	}
-
-	return nil
+	return sv.watcher.Start(time.Millisecond * 100)
 }
 
 func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
