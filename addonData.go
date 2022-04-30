@@ -19,6 +19,9 @@ const (
 	FollowerType_7_0 GarrisonFollowerType = 4   // Legion
 	FollowerType_8_0 GarrisonFollowerType = 22  // Battle for Azeroth
 	FollowerType_9_0 GarrisonFollowerType = 123 // Shadowlands
+
+	// max number of missions to show in list of next to complete
+	MAX_SHOW_NEXT_COMPLETE int = 3
 )
 
 type XPReward struct {
@@ -81,7 +84,7 @@ type MissionDetail struct {
 	Followers           []string
 	InProgress          bool
 	Xp                  int
-	MissionEndTime      int
+	MissionEndTime      int64
 	MissionID           int
 	FollowerTypeID      GarrisonFollowerType // Enum.GarrisonFollowerType
 	Name                string
@@ -96,7 +99,17 @@ type MissionDetail struct {
 }
 
 func (m *MissionDetail) IsComplete() bool {
-	return (m.MissionEndTime - int(time.Now().Unix())) < 0
+	return (m.MissionEndTime - time.Now().Unix()) < 0
+}
+
+func (m *MissionDetail) Companions() []*FollowerInfo {
+	companions := make([]*FollowerInfo, 0, len(m.FollowerInfo))
+	for _, info := range m.FollowerInfo {
+		if !info.IsAutoTroop {
+			companions = append(companions, info)
+		}
+	}
+	return companions
 }
 
 type AddonData struct {
@@ -125,13 +138,7 @@ func (ad *AddonData) getMissionsOfType(char *CharacterDetail, missionType Garris
 }
 
 func (ad *AddonData) missionsActive(char *CharacterDetail) []*MissionDetail {
-	active := make([]*MissionDetail, 0)
-	for _, m := range ad.getMissionsOfType(char, FollowerType_9_0) {
-		if m.InProgress {
-			active = append(active, m)
-		}
-	}
-	return active
+	return ad.getMissionsOfType(char, FollowerType_9_0)
 }
 
 func (ad *AddonData) missionsComplete(char *CharacterDetail) []*MissionDetail {
@@ -171,10 +178,33 @@ func (ad *AddonData) print() {
 		if char.Level != 60 {
 			continue
 		}
-		log.Printf("\t%-40s %2d / %2d\n",
+		missions := ad.missionsActive(char)
+		log.Printf("\t%-40s (%2d / %2d)\n",
 			key,
 			len(ad.missionsComplete(char)),
-			len(ad.missionsActive(char)))
+			len(missions))
+
+		sort.Slice(missions, func(i, j int) bool { return missions[i].MissionEndTime < missions[j].MissionEndTime })
+		var shown int
+		for _, m := range missions {
+			// skip completed missions
+			if m.IsComplete() {
+				continue
+			}
+
+			timeLeft := time.Until(time.Unix(m.MissionEndTime, 0)).Truncate(time.Second).String()
+			log.Printf("\t\t- (%d) %-15s [%2d] %-20s\n",
+				len(m.Companions()),
+				timeLeft,
+				m.MissionScalar,
+				m.Name)
+
+			shown++
+			// break loop if we're at max list length
+			if shown >= MAX_SHOW_NEXT_COMPLETE {
+				break
+			}
+		}
 	}
 }
 
