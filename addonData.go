@@ -95,6 +95,10 @@ type MissionDetail struct {
 	BaseCost            int
 }
 
+func (m *MissionDetail) IsComplete() bool {
+	return (m.MissionEndTime - int(time.Now().Unix())) < 0
+}
+
 type AddonData struct {
 	Characters map[string]*CharacterDetail
 	Missions   map[string][]*MissionDetail
@@ -133,7 +137,7 @@ func (ad *AddonData) missionsActive(char *CharacterDetail) []*MissionDetail {
 func (ad *AddonData) missionsComplete(char *CharacterDetail) []*MissionDetail {
 	complete := make([]*MissionDetail, 0)
 	for _, m := range ad.getMissionsOfType(char, FollowerType_9_0) {
-		if (m.MissionEndTime - int(time.Now().Unix())) < 0 {
+		if m.IsComplete() {
 			complete = append(complete, m)
 		}
 	}
