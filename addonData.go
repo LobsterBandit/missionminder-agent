@@ -62,54 +62,41 @@ type EncounterIconInfo struct {
 	PortraitFileDataID int
 }
 
+type FollowerInfo struct {
+	IsAutoTroop    bool
+	FollowerTypeID GarrisonFollowerType
+	Xp             int
+	Role           int
+	Health         int
+	LevelXP        int
+	Name           string
+	Level          int
+	MaxHealth      int
+	IsSoulbind     bool
+}
+
 type MissionDetail struct {
-	Description                 string
-	Cost                        int
-	IsZoneSupport               bool
-	EncounterIconInfo           EncounterIconInfo
-	Followers                   []string
-	InProgress                  bool
-	OvermaxRewards              []*json.RawMessage
-	Xp                          int
-	MissionEndTime              int
-	IsMaxLevel                  bool
-	MissionID                   int
-	CanStart                    bool
-	TypeAtlas                   string
-	SuccessChance               int
-	FollowerTypeID              GarrisonFollowerType // Enum.GarrisonFollowerType
-	Name                        string
-	OfferedGarrMissionTextureID int
-	MissionScalar               int
-	HasBonusEffect              bool
-	DurationSeconds             int
-	LocTextureKit               string
-	Duration                    string
-	AreaID                      int
-	CostCurrencyTypesID         int
-	CharText                    string
-	TimeLeft                    string
-	Rewards                     []*json.RawMessage // one of a few reward types -- currency, item, xp
-	MapPosY                     float64
-	Type                        string
-	FollowerInfo                map[string]*json.RawMessage
-	TimeLeftSeconds             int
-	RequiredSuccessChance       int
-	BaseCost                    int
-	Level                       int
-	NumFollowers                int
-	Completed                   bool
-	RequiredChampionCount       int
-	OvermaxSucceeded            bool
-	ILevel                      int
-	Location                    string
-	IsRare                      bool
-	MapPosX                     float64
-	IsTutorialMission           bool
+	Cost                int
+	EncounterIconInfo   *EncounterIconInfo
+	Followers           []string
+	InProgress          bool
+	Xp                  int
+	MissionEndTime      int
+	MissionID           int
+	FollowerTypeID      GarrisonFollowerType // Enum.GarrisonFollowerType
+	Name                string
+	MissionScalar       int
+	DurationSeconds     int
+	CostCurrencyTypesID int
+	CharText            string
+	Rewards             []*json.RawMessage // one of a few reward types -- currency, item, xp
+	Type                string
+	FollowerInfo        map[string]*FollowerInfo
+	BaseCost            int
 }
 
 type AddonData struct {
-	Characters map[string]CharacterDetail
+	Characters map[string]*CharacterDetail
 	Missions   map[string][]*MissionDetail
 }
 
@@ -119,11 +106,11 @@ func (ad *AddonData) characterKeys() []string {
 	return chars
 }
 
-func (ad *AddonData) getMissions(char CharacterDetail) []*MissionDetail {
+func (ad *AddonData) getMissions(char *CharacterDetail) []*MissionDetail {
 	return ad.Missions[missionKey(char)]
 }
 
-func (ad *AddonData) getMissionsOfType(char CharacterDetail, missionType GarrisonFollowerType) []*MissionDetail {
+func (ad *AddonData) getMissionsOfType(char *CharacterDetail, missionType GarrisonFollowerType) []*MissionDetail {
 	missions := make([]*MissionDetail, 0)
 	for _, m := range ad.Missions[missionKey(char)] {
 		if m.FollowerTypeID == missionType {
@@ -133,7 +120,7 @@ func (ad *AddonData) getMissionsOfType(char CharacterDetail, missionType Garriso
 	return missions
 }
 
-func (ad *AddonData) missionsActive(char CharacterDetail) []*MissionDetail {
+func (ad *AddonData) missionsActive(char *CharacterDetail) []*MissionDetail {
 	active := make([]*MissionDetail, 0)
 	for _, m := range ad.getMissionsOfType(char, FollowerType_9_0) {
 		if m.InProgress {
@@ -143,7 +130,7 @@ func (ad *AddonData) missionsActive(char CharacterDetail) []*MissionDetail {
 	return active
 }
 
-func (ad *AddonData) missionsComplete(char CharacterDetail) []*MissionDetail {
+func (ad *AddonData) missionsComplete(char *CharacterDetail) []*MissionDetail {
 	complete := make([]*MissionDetail, 0)
 	for _, m := range ad.getMissionsOfType(char, FollowerType_9_0) {
 		if (m.MissionEndTime - int(time.Now().Unix())) < 0 {
@@ -188,11 +175,11 @@ func (ad *AddonData) print() {
 }
 
 // account.realm.character
-func characterKey(char CharacterDetail) string {
+func characterKey(char *CharacterDetail) string {
 	return fmt.Sprintf("%s.%s.%s", "Default", char.Realm, char.Name)
 }
 
 // character-realm
-func missionKey(char CharacterDetail) string {
+func missionKey(char *CharacterDetail) string {
 	return fmt.Sprintf("%s-%s", char.Name, char.Realm)
 }
