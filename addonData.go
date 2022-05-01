@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/fatih/color"
 	"golang.org/x/exp/maps"
 )
 
@@ -107,9 +108,9 @@ func (m *MissionDetail) TimeRemaining() (s string) {
 	s = time.Unix(0, 0).UTC().Add(t).Format("15h:04m:05s")
 
 	if t.Minutes() < 30.0 {
-		s = fmt.Sprintf("\033[32m%s\033[0m", s)
+		s = color.RedString(s)
 	} else if t.Hours() < 1.0 {
-		s = fmt.Sprintf("\033[33m%s\033[0m", s)
+		s = color.YellowString(s)
 	}
 
 	return s
@@ -192,9 +193,9 @@ func (ad *AddonData) print() {
 			continue
 		}
 		missions := ad.missionsActive(char)
-		log.Printf("\t%-40s (%2d / %2d)\n",
+		log.Printf("\t%-40s (%-2s / %2d)\n",
 			key,
-			len(ad.missionsComplete(char)),
+			color.GreenString(fmt.Sprintf("%2d", len(ad.missionsComplete(char)))),
 			len(missions))
 
 		sort.Slice(missions, func(i, j int) bool { return missions[i].MissionEndTime < missions[j].MissionEndTime })
