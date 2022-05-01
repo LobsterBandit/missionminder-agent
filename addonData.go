@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -105,12 +106,12 @@ func (m *MissionDetail) IsComplete() bool {
 
 func (m *MissionDetail) TimeRemaining() (s string) {
 	t := time.Until(time.Unix(m.MissionEndTime, 0)).Truncate(time.Second)
-	s = time.Unix(0, 0).UTC().Add(t).Format("15h:04m:05s")
+	s = formatDuration(t)
 
 	if t.Minutes() < 30.0 {
-		s = color.RedString(s)
+		s = color.RedString("%11s", s)
 	} else if t.Hours() < 1.0 {
-		s = color.YellowString(s)
+		s = color.YellowString("%11s", s)
 	}
 
 	return s
@@ -229,4 +230,42 @@ func characterKey(char *CharacterDetail) string {
 // character-realm
 func missionKey(char *CharacterDetail) string {
 	return fmt.Sprintf("%s-%s", char.Name, char.Realm)
+}
+
+// format a duration in HHh:MMm:SSs format
+func formatDuration(d time.Duration) string {
+	// use default duration format if only seconds
+	if d < time.Minute {
+		return d.String()
+	}
+
+	hasHours := false
+	var b strings.Builder
+	// hours
+	if d >= time.Hour {
+		hasHours = true
+		hours := d / time.Hour
+		fmt.Fprintf(&b, "%2dh:", int(hours))
+		d -= hours * time.Hour
+	}
+
+	// minutes
+	if d >= time.Minute {
+		// 0 pad minutes only if preceded by hours
+		var fs string
+		if hasHours {
+			fs = "%02dm:"
+		} else {
+			fs = "%2dm:"
+		}
+
+		mins := d / time.Minute
+		fmt.Fprintf(&b, fs, int(mins))
+		d -= mins * time.Minute
+	}
+
+	// seconds
+	fmt.Fprintf(&b, "%03s", d)
+
+	return b.String()
 }
