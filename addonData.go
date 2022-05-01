@@ -102,6 +102,19 @@ func (m *MissionDetail) IsComplete() bool {
 	return (m.MissionEndTime - time.Now().Unix()) < 0
 }
 
+func (m *MissionDetail) TimeRemaining() (s string) {
+	t := time.Until(time.Unix(m.MissionEndTime, 0)).Truncate(time.Second)
+	s = time.Unix(0, 0).UTC().Add(t).Format("15h:04m:05s")
+
+	if t.Minutes() < 30.0 {
+		s = fmt.Sprintf("\033[32m%s\033[0m", s)
+	} else if t.Hours() < 1.0 {
+		s = fmt.Sprintf("\033[33m%s\033[0m", s)
+	}
+
+	return s
+}
+
 func (m *MissionDetail) Companions() []*FollowerInfo {
 	companions := make([]*FollowerInfo, 0, len(m.FollowerInfo))
 	for _, info := range m.FollowerInfo {
@@ -192,10 +205,9 @@ func (ad *AddonData) print() {
 				continue
 			}
 
-			timeLeft := time.Until(time.Unix(m.MissionEndTime, 0)).Truncate(time.Second).String()
-			log.Printf("\t\t- (%d) %-15s [%2d] %-20s\n",
+			log.Printf("\t\t- %11s    (%d) [%2d] %-20s\n",
+				m.TimeRemaining(),
 				len(m.Companions()),
-				timeLeft,
 				m.MissionScalar,
 				m.Name)
 
