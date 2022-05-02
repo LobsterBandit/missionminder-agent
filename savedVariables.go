@@ -86,7 +86,7 @@ func (sv *SavedVariables) getContents() ([]byte, error) {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
-	b64z := extractExport(string(rawData))
+	b64z := extractExport(rawData)
 	zData, err := decode(b64z)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding data: %w", err)
@@ -115,16 +115,20 @@ func (sv *SavedVariables) refresh() {
 	sv.watcher.TriggerEvent(watcher.Write, sv.watcher.WatchedFiles()[sv.path()])
 }
 
-func extractExport(data string) string {
-	match := exportRegex.FindStringSubmatch(data)
+func extractExport(data []byte) []byte {
+	match := exportRegex.FindSubmatch(data)
 	if match == nil {
-		return ""
+		return nil
 	}
 	return match[1]
 }
 
-func decode(b64 string) ([]byte, error) {
-	return base64.StdEncoding.DecodeString(b64)
+func decode(b64 []byte) ([]byte, error) {
+	out := make([]byte, base64.StdEncoding.DecodedLen(len(b64)))
+	if _, err := base64.StdEncoding.Decode(out, b64); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func decompress(data []byte) ([]byte, error) {
