@@ -250,7 +250,7 @@ func formatDuration(d time.Duration) string {
 	}
 
 	// minutes
-	if d >= time.Minute {
+	if d >= time.Minute || hasHours {
 		// 0 pad minutes only if preceded by hours
 		var fs string
 		if hasHours {
