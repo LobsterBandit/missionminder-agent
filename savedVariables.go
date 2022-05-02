@@ -34,7 +34,7 @@ func NewSV(name string) *SavedVariables {
 	return &SavedVariables{
 		File:    name,
 		Current: &AddonData{},
-		Data:    make(chan *AddonData),
+		Data:    make(chan *AddonData, 1),
 		watcher: watcher.New(),
 	}
 }
@@ -133,6 +133,7 @@ func decode(b64 []byte) ([]byte, error) {
 
 func decompress(data []byte) ([]byte, error) {
 	reader, err := zlib.NewReader(bytes.NewReader(data))
+	defer reader.Close()
 	if err != nil {
 		return nil, err
 	}
