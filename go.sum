@@ -1,7 +1,7 @@
-github.com/circleci/watcher v1.99.1 h1:5iSt7iskJ9SwkO33Bc0H3zoQ7rcMR5irMx0tkA7ErWw=
-github.com/circleci/watcher v1.99.1/go.mod h1:i+XxflwjsNvomHPoxt5Z2f+Q3wukeXcnzmyAhgiipQs=
 github.com/fatih/color v1.13.0 h1:8LOYc1KYPPmyKMuN8QV2DNRWNbLo6LZ0iLs8+mlH53w=
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
+github.com/lobsterbandit/watcher v1.99.2-0.20220503231916-aab8e3698fb1 h1:VdClVkuyoN353z+T1jIXQ0NcGBsmoLtX+1ZxA7EPHLg=
+github.com/lobsterbandit/watcher v1.99.2-0.20220503231916-aab8e3698fb1/go.mod h1:i+XxflwjsNvomHPoxt5Z2f+Q3wukeXcnzmyAhgiipQs=
 github.com/mattn/go-colorable v0.1.9 h1:sqDoxXbdeALODt0DAeJCVp38ps9ZogZEAXjus69YV3U=
 github.com/mattn/go-colorable v0.1.9/go.mod h1:u6P/XSegPjTcexA+o6vUJrdnUu04hMope9wVRipJSqc=
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=

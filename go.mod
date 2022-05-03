@@ -14,4 +14,4 @@ require (
 	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654 // indirect
 )
 
-replace github.com/radovskyb/watcher => github.com/circleci/watcher v1.99.1
+replace github.com/radovskyb/watcher => github.com/lobsterbandit/watcher v1.99.2-0.20220503231916-aab8e3698fb1
