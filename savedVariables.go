@@ -10,18 +10,19 @@ import (
 	"log"
 	"os"
 	"path"
-	"regexp"
 	"time"
 
 	"github.com/radovskyb/watcher"
 )
 
 const (
-	svDir         = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/"
-	exportPattern = `\[\"export\"\] = \"(.*)\",`
+	svDir = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/"
 )
 
-var exportRegex = regexp.MustCompile(exportPattern)
+var (
+	exportPrefix = []byte(`["export"] = "`)
+	exportSuffix = []byte(`",`)
+)
 
 type SavedVariables struct {
 	Current *AddonData
@@ -116,11 +117,16 @@ func (sv *SavedVariables) refresh() {
 }
 
 func extractExport(data []byte) []byte {
-	match := exportRegex.FindSubmatch(data)
-	if match == nil {
+	start := bytes.Index(data, exportPrefix)
+	if start == -1 {
 		return nil
 	}
-	return match[1]
+
+	end := bytes.Index(data[start:], exportSuffix)
+	if end == -1 {
+		return nil
+	}
+	return data[start+len(exportPrefix) : start+end]
 }
 
 func decode(b64 []byte) ([]byte, error) {

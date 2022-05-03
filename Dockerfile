@@ -15,8 +15,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 
 FROM gcr.io/distroless/static as final
 
-ENV GODEBUG=madvdontneed=0
-
 COPY --from=builder /tmp/build/missionminder-agent /missionminder-agent
 
 ENTRYPOINT ["/missionminder-agent"]
