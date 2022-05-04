@@ -5,6 +5,7 @@ import (
 	"compress/zlib"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -16,7 +17,10 @@ import (
 )
 
 const (
-	svDir = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/"
+	svDir            string        = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/"
+	POLLING_INTERVAL time.Duration = time.Millisecond * 100
+	RETRY_INTERVAL   time.Duration = time.Millisecond * 500
+	RETRY_MAX        int           = 3
 )
 
 var (
@@ -56,6 +60,9 @@ func (sv *SavedVariables) watch() error {
 				sv.handleWatchEvent(event)
 			case err := <-sv.watcher.Error:
 				log.Println("watcher error:", err)
+				if errors.Is(err, watcher.ErrWatchedFileDeleted) {
+					go sv.retryWatch()
+				}
 			case <-sv.watcher.Closed:
 				return
 			}
@@ -66,7 +73,7 @@ func (sv *SavedVariables) watch() error {
 		return err
 	}
 
-	return sv.watcher.Start(time.Millisecond * 100)
+	return sv.watcher.Start(POLLING_INTERVAL)
 }
 
 func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
@@ -116,6 +123,37 @@ func (sv *SavedVariables) refresh() {
 	sv.watcher.TriggerEvent(watcher.Write, sv.watcher.WatchedFiles()[sv.path()])
 }
 
+func (sv *SavedVariables) retryWatch() {
+	retries := 0
+	for retries < RETRY_MAX {
+		select {
+		case <-sv.watcher.Closed:
+			// abort retries if watcher is closed
+			return
+		case <-time.After(RETRY_INTERVAL * time.Duration(retries)):
+			retries++
+			log.Printf("retry %d attempting to watch %s\n", retries, sv.path())
+
+			if fileExist(sv.path()) {
+				log.Println(sv.path(), "exists: adding to watcher")
+				err := sv.watcher.Add(sv.path())
+				if err == nil {
+					// added file to watcher, break out of retry
+					return
+				}
+				log.Println("error rewatching file:", err)
+			} else {
+				log.Println("error rewatching file:", sv.path(), "does not exist")
+			}
+
+			if retries < RETRY_MAX {
+				log.Printf("error rewatching deleted file: retry again in %s\n", RETRY_INTERVAL*time.Duration(retries))
+			}
+		}
+	}
+	log.Printf("error rewatching file: exhausted %d retries\n", RETRY_MAX)
+}
+
 func extractExport(data []byte) []byte {
 	start := bytes.Index(data, exportPrefix)
 	if start == -1 {
@@ -150,4 +188,18 @@ func decompress(data []byte) ([]byte, error) {
 	}
 
 	return result, nil
+}
+
+func fileExist(file string) bool {
+	_, err := os.Stat(file)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return true
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			return false
+		}
+		return false
+	}
+	return true
 }
