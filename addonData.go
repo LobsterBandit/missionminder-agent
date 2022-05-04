@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/fatih/color"
 	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 )
 
 // https://wowpedia.fandom.com/wiki/Enum.GarrisonFollowerType
@@ -46,6 +48,53 @@ type CurrencyReward struct {
 	Quantity   int
 	Title      string
 }
+
+type AdventureTable struct {
+	Type      GarrisonFollowerType
+	Followers map[string]*FollowerInfo
+	Missions  []*MissionDetail
+}
+
+func (t *AdventureTable) Companions(m *MissionDetail) []*FollowerInfo {
+	companions := make([]*FollowerInfo, 0, len(m.Followers))
+	for _, f := range m.Followers {
+		if c, ok := t.Followers[f]; ok && !c.IsAutoTroop {
+			companions = append(companions, c)
+		}
+	}
+	return companions
+}
+
+func (t *AdventureTable) NumCompanions() int {
+	var c int
+	for _, info := range t.Followers {
+		if !info.IsAutoTroop {
+			c++
+		}
+	}
+	return c
+}
+
+func (t *AdventureTable) ActiveCompanions() []*FollowerInfo {
+	companions := make([]*FollowerInfo, 0, len(t.Followers))
+	for _, m := range t.Missions {
+		companions = append(companions, t.Companions(m)...)
+	}
+	return companions
+}
+
+func (t *AdventureTable) IdleCompanions() []*FollowerInfo {
+	idle := make([]*FollowerInfo, 0, len(t.Followers))
+	active := t.ActiveCompanions()
+	for _, info := range t.Followers {
+		if !info.IsAutoTroop && !slices.Contains(active, info) {
+			idle = append(idle, info)
+		}
+	}
+	return idle
+}
+
+type AdventureTables map[string]*AdventureTable
 
 type CharacterDetail struct {
 	Key         string
@@ -96,7 +145,6 @@ type MissionDetail struct {
 	CharText            string
 	Rewards             []*json.RawMessage // one of a few reward types -- currency, item, xp
 	Type                string
-	FollowerInfo        map[string]*FollowerInfo
 	BaseCost            int
 }
 
@@ -117,19 +165,9 @@ func (m *MissionDetail) TimeRemaining() (s string) {
 	return s
 }
 
-func (m *MissionDetail) Companions() []*FollowerInfo {
-	companions := make([]*FollowerInfo, 0, len(m.FollowerInfo))
-	for _, info := range m.FollowerInfo {
-		if !info.IsAutoTroop {
-			companions = append(companions, info)
-		}
-	}
-	return companions
-}
-
 type AddonData struct {
-	Characters map[string]*CharacterDetail
-	Missions   map[string][]*MissionDetail
+	Characters      map[string]*CharacterDetail
+	AdventureTables map[string]AdventureTables
 }
 
 func (ad *AddonData) characterKeys() []string {
@@ -138,18 +176,21 @@ func (ad *AddonData) characterKeys() []string {
 	return chars
 }
 
-func (ad *AddonData) getMissions(char *CharacterDetail) []*MissionDetail {
-	return ad.Missions[missionKey(char)]
+func (ad *AddonData) getAdventureTable(char *CharacterDetail, missionType GarrisonFollowerType) *AdventureTable {
+	table, hasTable := ad.AdventureTables[adventureTableKey(char)][strconv.Itoa(int(missionType))]
+	if !hasTable {
+		return nil
+	}
+
+	return table
 }
 
 func (ad *AddonData) getMissionsOfType(char *CharacterDetail, missionType GarrisonFollowerType) []*MissionDetail {
-	missions := make([]*MissionDetail, 0)
-	for _, m := range ad.Missions[missionKey(char)] {
-		if m.FollowerTypeID == missionType {
-			missions = append(missions, m)
-		}
+	table := ad.getAdventureTable(char, missionType)
+	if table == nil {
+		return nil
 	}
-	return missions
+	return table.Missions
 }
 
 func (ad *AddonData) missionsActive(char *CharacterDetail) []*MissionDetail {
@@ -190,14 +231,18 @@ func (ad *AddonData) print() {
 
 	for _, key := range ad.characterKeys() {
 		char := ad.Characters[key]
-		if char.Level != 60 {
+		table := ad.getAdventureTable(char, FollowerType_9_0)
+		if table == nil {
 			continue
 		}
+
 		missions := ad.missionsActive(char)
-		log.Printf("\t%-40s (%-2s / %2d)\n",
-			key,
-			color.GreenString(fmt.Sprintf("%2d", len(ad.missionsComplete(char)))),
-			len(missions))
+		log.Printf("\t%-30s M(%-2s / %2d) F(%-2s / %2d)\n",
+			color.CyanString("%-30s", adventureTableKey(char)),
+			color.GreenString("%2d", len(ad.missionsComplete(char))),
+			len(missions),
+			color.YellowString("%2d", len(table.IdleCompanions())),
+			table.NumCompanions())
 
 		sort.Slice(missions, func(i, j int) bool { return missions[i].MissionEndTime < missions[j].MissionEndTime })
 		var shown int
@@ -209,7 +254,7 @@ func (ad *AddonData) print() {
 
 			log.Printf("\t\t- %11s    (%d) [%2d] %-20s\n",
 				m.TimeRemaining(),
-				len(m.Companions()),
+				len(table.Companions(m)),
 				m.MissionScalar,
 				m.Name)
 
@@ -228,7 +273,7 @@ func characterKey(char *CharacterDetail) string {
 }
 
 // character-realm
-func missionKey(char *CharacterDetail) string {
+func adventureTableKey(char *CharacterDetail) string {
 	return fmt.Sprintf("%s-%s", char.Name, char.Realm)
 }
 
