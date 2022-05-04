@@ -45,7 +45,7 @@ func main() {
 				log.Println("refreshing calculations")
 				sv.Current.print()
 			case <-ctx.Done():
-				log.Println("received cancel signal")
+				log.Printf("exiting refresh loop: %v\n", ctx.Err())
 				flushTimer(refreshTimer)
 				return
 			}

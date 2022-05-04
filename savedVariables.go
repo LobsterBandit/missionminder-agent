@@ -94,7 +94,15 @@ func (sv *SavedVariables) getContents() ([]byte, error) {
 		return nil, fmt.Errorf("error reading file: %w", err)
 	}
 
-	b64z := extractExport(rawData)
+	if len(rawData) == 0 {
+		return nil, fmt.Errorf("error parsing file: contents empty")
+	}
+
+	b64z, err := extractExport(rawData)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting data: %w", err)
+	}
+
 	zData, err := decode(b64z)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding data: %w", err)
@@ -154,20 +162,24 @@ func (sv *SavedVariables) retryWatch() {
 	log.Printf("error rewatching file: exhausted %d retries\n", RETRY_MAX)
 }
 
-func extractExport(data []byte) []byte {
+func extractExport(data []byte) ([]byte, error) {
 	start := bytes.Index(data, exportPrefix)
 	if start == -1 {
-		return nil
+		return nil, fmt.Errorf("export match not found")
 	}
 
 	end := bytes.Index(data[start:], exportSuffix)
 	if end == -1 {
-		return nil
+		return nil, fmt.Errorf("export match not found")
 	}
-	return data[start+len(exportPrefix) : start+end]
+	return data[start+len(exportPrefix) : start+end], nil
 }
 
 func decode(b64 []byte) ([]byte, error) {
+	if len(b64) == 0 {
+		return nil, fmt.Errorf("error decoding base64: nil or empty byte array")
+	}
+
 	out := make([]byte, base64.StdEncoding.DecodedLen(len(b64)))
 	if _, err := base64.StdEncoding.Decode(out, b64); err != nil {
 		return nil, err
