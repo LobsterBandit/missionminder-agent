@@ -80,7 +80,6 @@ func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
 	log.Println("watch event:", e)
 
 	if err := sv.loadAddonData(); err != nil {
-		sv.Current = nil
 		log.Println("error handling watch event:", err)
 		return
 	}
