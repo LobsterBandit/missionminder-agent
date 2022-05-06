@@ -8,18 +8,11 @@ import (
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/lobsterbandit/missionminder-agent/timer"
 )
 
 const RefreshSeconds int64 = 30
-
-func flushTimer(t *time.Timer) {
-	log.Println("stopping any existing refresh timer")
-
-	if !t.Stop() {
-		log.Println("refresh timer already stopped or expired, draining channel")
-		<-t.C
-	}
-}
 
 //nolint:funlen
 func main() {
@@ -34,28 +27,31 @@ func main() {
 		defer close(done)
 
 		refreshDuration := time.Second * time.Duration(RefreshSeconds)
-		log.Println("starting refresh timer:", refreshDuration)
-		refreshTimer := time.NewTimer(refreshDuration)
+		rt := timer.NewRefreshTimer(refreshDuration)
 
 		for {
+			rt.Next()
 			select {
 			// listen for sv data
 			case data := <-sv.Data:
 				log.Println("new data received")
-				flushTimer(refreshTimer)
+				rt.Stop()
 				data.print()
 			// refresh every X seconds to recalculate times
-			case <-refreshTimer.C:
+			case <-rt.C:
 				log.Println("refreshing calculations")
 				sv.Current.print()
 			case <-ctx.Done():
 				log.Printf("exiting refresh loop: %v\n", ctx.Err())
-				flushTimer(refreshTimer)
+				rt.Stop()
 
 				return
 			}
-			log.Println("resetting refresh timer:", refreshDuration)
-			refreshTimer.Reset(refreshDuration)
+		}
+	}()
+
+				return
+			}
 		}
 	}()
 
