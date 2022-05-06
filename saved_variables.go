@@ -17,15 +17,27 @@ import (
 )
 
 const (
-	svDir            string        = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/"
-	POLLING_INTERVAL time.Duration = time.Millisecond * 100
-	RETRY_INTERVAL   time.Duration = time.Millisecond * 500
-	RETRY_MAX        int           = 3
+	svDir           string        = "/wow/_retail_/WTF/Account/2DP3/SavedVariables/"
+	PollingInterval time.Duration = time.Millisecond * 100
+	RetryInterval   time.Duration = time.Millisecond * 500
+	MaxRetries      int           = 3
 )
 
 var (
-	exportPrefix = []byte(`["export"] = "`)
-	exportSuffix = []byte(`",`)
+	exportPrefix = []byte(`["export"] = "`) //nolint:gochecknoglobals
+	exportSuffix = []byte(`",`)             //nolint:gochecknoglobals
+
+	// The saved variables file is empty.
+	ErrAddonContentsEmpty = errors.New("error parsing file: contents empty")
+
+	// Error decoding 0 bytes.
+	ErrDecodeData = errors.New("error decoding data: nil or empty byte array")
+
+	// Error decompressing data.
+	ErrDecompressData = errors.New("error decompressing data")
+
+	// Export string not found in saved variables file.
+	ErrExportMatchNotFound = errors.New("export match not found")
 )
 
 type SavedVariables struct {
@@ -38,7 +50,7 @@ type SavedVariables struct {
 func NewSV(name string) *SavedVariables {
 	return &SavedVariables{
 		File:    name,
-		Current: &AddonData{},
+		Current: &AddonData{Characters: make(map[string]*Character)},
 		Data:    make(chan *AddonData, 1),
 		watcher: watcher.New(),
 	}
@@ -49,7 +61,7 @@ func (sv *SavedVariables) path() string {
 }
 
 func (sv *SavedVariables) read() ([]byte, error) {
-	return os.ReadFile(sv.path())
+	return os.ReadFile(sv.path()) //nolint:wrapcheck
 }
 
 func (sv *SavedVariables) watch() error {
@@ -60,6 +72,7 @@ func (sv *SavedVariables) watch() error {
 				sv.handleWatchEvent(event)
 			case err := <-sv.watcher.Error:
 				log.Println("watcher error:", err)
+
 				if errors.Is(err, watcher.ErrWatchedFileDeleted) {
 					go sv.retryWatch()
 				}
@@ -70,10 +83,10 @@ func (sv *SavedVariables) watch() error {
 	}()
 
 	if err := sv.watcher.Add(sv.path()); err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 
-	return sv.watcher.Start(POLLING_INTERVAL)
+	return sv.watcher.Start(PollingInterval) //nolint:wrapcheck
 }
 
 func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
@@ -81,6 +94,7 @@ func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
 
 	if err := sv.loadAddonData(); err != nil {
 		log.Println("error handling watch event:", err)
+
 		return
 	}
 
@@ -94,7 +108,7 @@ func (sv *SavedVariables) getContents() ([]byte, error) {
 	}
 
 	if len(rawData) == 0 {
-		return nil, fmt.Errorf("error parsing file: contents empty")
+		return nil, ErrAddonContentsEmpty
 	}
 
 	b64z, err := extractExport(rawData)
@@ -120,9 +134,11 @@ func (sv *SavedVariables) loadAddonData() error {
 	if err != nil {
 		return err
 	}
+
 	if err = json.Unmarshal(contents, sv.Current); err != nil {
-		return err
+		return fmt.Errorf("error loading addon data: %w", err)
 	}
+
 	return nil
 }
 
@@ -132,12 +148,12 @@ func (sv *SavedVariables) refresh() {
 
 func (sv *SavedVariables) retryWatch() {
 	retries := 0
-	for retries < RETRY_MAX {
+	for retries < MaxRetries {
 		select {
 		case <-sv.watcher.Closed:
 			// abort retries if watcher is closed
 			return
-		case <-time.After(RETRY_INTERVAL * time.Duration(retries)):
+		case <-time.After(RetryInterval * time.Duration(retries)):
 			retries++
 			log.Printf("retry %d attempting to watch %s\n", retries, sv.path())
 
@@ -148,54 +164,58 @@ func (sv *SavedVariables) retryWatch() {
 					// added file to watcher, break out of retry
 					return
 				}
+
 				log.Println("error rewatching file:", err)
 			} else {
 				log.Println("error rewatching file:", sv.path(), "does not exist")
 			}
 
-			if retries < RETRY_MAX {
-				log.Printf("error rewatching deleted file: retry again in %s\n", RETRY_INTERVAL*time.Duration(retries))
+			if retries < MaxRetries {
+				log.Printf("error rewatching deleted file: retry again in %s\n", RetryInterval*time.Duration(retries))
 			}
 		}
 	}
-	log.Printf("error rewatching file: exhausted %d retries\n", RETRY_MAX)
+	log.Printf("error rewatching file: exhausted %d retries\n", MaxRetries)
 }
 
 func extractExport(data []byte) ([]byte, error) {
 	start := bytes.Index(data, exportPrefix)
 	if start == -1 {
-		return nil, fmt.Errorf("export match not found")
+		return nil, ErrExportMatchNotFound
 	}
 
 	end := bytes.Index(data[start:], exportSuffix)
 	if end == -1 {
-		return nil, fmt.Errorf("export match not found")
+		return nil, ErrExportMatchNotFound
 	}
+
 	return data[start+len(exportPrefix) : start+end], nil
 }
 
 func decode(b64 []byte) ([]byte, error) {
 	if len(b64) == 0 {
-		return nil, fmt.Errorf("error decoding base64: nil or empty byte array")
+		return nil, ErrDecodeData
 	}
 
 	out := make([]byte, base64.StdEncoding.DecodedLen(len(b64)))
 	if _, err := base64.StdEncoding.Decode(out, b64); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", ErrDecodeData, err)
 	}
+
 	return out, nil
 }
 
 func decompress(data []byte) ([]byte, error) {
 	reader, err := zlib.NewReader(bytes.NewReader(data))
 	defer reader.Close()
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", ErrDecompressData, err)
 	}
 
 	result, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", ErrDecompressData, err)
 	}
 
 	return result, nil
@@ -207,10 +227,13 @@ func fileExist(file string) bool {
 		if errors.Is(err, os.ErrExist) {
 			return true
 		}
+
 		if errors.Is(err, os.ErrNotExist) {
 			return false
 		}
+
 		return false
 	}
+
 	return true
 }
