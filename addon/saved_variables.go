@@ -1,8 +1,9 @@
-package main
+package addon
 
 import (
 	"bytes"
 	"compress/zlib"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -41,8 +42,8 @@ var (
 )
 
 type SavedVariables struct {
-	Current *AddonData
-	Data    chan *AddonData
+	Current *Data
+	Data    chan *Data
 	File    string
 	watcher *watcher.Watcher
 }
@@ -50,8 +51,8 @@ type SavedVariables struct {
 func NewSV(name string) *SavedVariables {
 	return &SavedVariables{
 		File:    name,
-		Current: &AddonData{Characters: make(map[string]*Character)},
-		Data:    make(chan *AddonData, 1),
+		Current: &Data{Characters: make(map[string]*Character)},
+		Data:    make(chan *Data, 1),
 		watcher: watcher.New(),
 	}
 }
@@ -64,7 +65,7 @@ func (sv *SavedVariables) read() ([]byte, error) {
 	return os.ReadFile(sv.path()) //nolint:wrapcheck
 }
 
-func (sv *SavedVariables) watch() error {
+func (sv *SavedVariables) Watch(ctx context.Context) error {
 	go func() {
 		for {
 			select {
@@ -76,6 +77,10 @@ func (sv *SavedVariables) watch() error {
 				if errors.Is(err, watcher.ErrWatchedFileDeleted) {
 					go sv.retryWatch()
 				}
+			case <-ctx.Done():
+				sv.watcher.Close()
+
+				return
 			case <-sv.watcher.Closed:
 				return
 			}
@@ -89,10 +94,16 @@ func (sv *SavedVariables) watch() error {
 	return sv.watcher.Start(PollingInterval) //nolint:wrapcheck
 }
 
+// func (sv *SavedVariables) Stop() <-chan struct{} {
+// 	sv.watcher.Close()
+
+// 	return sv.watcher.Closed
+// }
+
 func (sv *SavedVariables) handleWatchEvent(e watcher.Event) {
 	log.Println("watch event:", e)
 
-	if err := sv.loadAddonData(); err != nil {
+	if err := sv.LoadAddonData(); err != nil {
 		log.Println("error handling watch event:", err)
 
 		return
@@ -129,7 +140,7 @@ func (sv *SavedVariables) getContents() ([]byte, error) {
 	return data, nil
 }
 
-func (sv *SavedVariables) loadAddonData() error {
+func (sv *SavedVariables) LoadAddonData() error {
 	contents, err := sv.getContents()
 	if err != nil {
 		return err
@@ -142,7 +153,7 @@ func (sv *SavedVariables) loadAddonData() error {
 	return nil
 }
 
-func (sv *SavedVariables) refresh() {
+func (sv *SavedVariables) TriggerWrite() {
 	sv.watcher.TriggerEvent(watcher.Write, sv.watcher.WatchedFiles()[sv.path()])
 }
 
