@@ -18,13 +18,18 @@ import (
 type GarrisonFollowerType int
 
 const (
-	FollowerType_6_0 GarrisonFollowerType = 1   // Garrison
-	FollowerType_6_2 GarrisonFollowerType = 2   // Shipyard
-	FollowerType_7_0 GarrisonFollowerType = 4   // Legion
-	FollowerType_8_0 GarrisonFollowerType = 22  // Battle for Azeroth
-	FollowerType_9_0 GarrisonFollowerType = 123 // Shadowlands
+	// Garrison follower type.
+	FollowerType_6_0 GarrisonFollowerType = 1 //nolint:golint,revive
+	// Shipyard follower type.
+	FollowerType_6_2 GarrisonFollowerType = 2 //nolint:golint,revive
+	// Legion follower type.
+	FollowerType_7_0 GarrisonFollowerType = 4 //nolint:golint,revive
+	// Battle for Azeroth follower type.
+	FollowerType_8_0 GarrisonFollowerType = 22 //nolint:golint,revive
+	// Shadowlands follower type.
+	FollowerType_9_0 GarrisonFollowerType = 123 //nolint:golint,revive
 
-	MAX_SHOW_NEXT_COMPLETE int = 3 // max number of missions to show in list of next to complete
+	MaxShowNextComplete int = 3 // max number of missions to show in list of next to complete
 )
 
 type XPReward struct {
@@ -56,48 +61,54 @@ type EncounterIconInfo struct {
 }
 
 type FollowerInfo struct {
-	IsAutoTroop    bool
 	FollowerTypeID GarrisonFollowerType
-	Xp             int
-	Role           int
 	Health         int
-	LevelXP        int
-	Name           string
-	Level          int
-	MaxHealth      int
+	IsAutoTroop    bool
 	IsSoulbind     bool
+	Level          int
+	LevelXP        int
+	MaxHealth      int
+	Name           string
+	Role           int
+	Xp             int
 }
 
 type MissionDetail struct {
+	BaseCost            int
+	CharText            string
 	Cost                int
+	CostCurrencyTypesID int
+	DurationSeconds     int
 	EncounterIconInfo   *EncounterIconInfo
 	Followers           []string
+	FollowerInfo        map[string]*FollowerInfo
+	FollowerTypeID      GarrisonFollowerType // Enum.GarrisonFollowerType
 	InProgress          bool
-	Xp                  int
 	MissionEndTime      int64
 	MissionID           int
-	FollowerTypeID      GarrisonFollowerType // Enum.GarrisonFollowerType
-	Name                string
 	MissionScalar       int
-	DurationSeconds     int
-	CostCurrencyTypesID int
-	CharText            string
+	Name                string
 	Rewards             []*json.RawMessage // one of a few reward types -- currency, item, xp
 	Type                string
-	BaseCost            int
+	Xp                  int
 }
 
 func (m *MissionDetail) IsComplete() bool {
 	return (m.MissionEndTime - time.Now().Unix()) < 0
 }
 
+const (
+	AlertTime = time.Minute * 30
+	WarnTime  = time.Hour * 1
+)
+
 func (m *MissionDetail) TimeRemaining() (s string) {
 	t := time.Until(time.Unix(m.MissionEndTime, 0)).Truncate(time.Second)
 	s = formatDuration(t)
 
-	if t.Minutes() < 30.0 {
+	if t < AlertTime {
 		s = color.RedString("%11s", s)
-	} else if t.Hours() < 1.0 {
+	} else if t < WarnTime {
 		s = color.YellowString("%11s", s)
 	}
 
@@ -106,37 +117,43 @@ func (m *MissionDetail) TimeRemaining() (s string) {
 
 type AdventureTable struct {
 	Type      GarrisonFollowerType
-	Followers map[string]*FollowerInfo
+	Followers map[string]*FollowerInfo `json:",omitempty"` //nolint:tagliatelle
 	Missions  []*MissionDetail
 }
 
 func (t *AdventureTable) CompanionsOnMission(m *MissionDetail) []*FollowerInfo {
 	companions := make([]*FollowerInfo, 0, len(m.Followers))
+
 	for _, f := range m.Followers {
 		if c, ok := t.Followers[f]; ok && !c.IsAutoTroop {
 			companions = append(companions, c)
 		}
 	}
+
 	return companions
 }
 
 func (t *AdventureTable) Companions() []*FollowerInfo {
 	companions := make([]*FollowerInfo, 0, len(t.Followers))
+
 	for _, f := range t.Followers {
 		if !f.IsAutoTroop {
 			companions = append(companions, f)
 		}
 	}
+
 	return companions
 }
 
 func (t *AdventureTable) NumCompanions() int {
 	var c int
+
 	for _, info := range t.Followers {
 		if !info.IsAutoTroop {
 			c++
 		}
 	}
+
 	return c
 }
 
@@ -145,6 +162,7 @@ func (t *AdventureTable) ActiveCompanions() []*FollowerInfo {
 	for _, m := range t.Missions {
 		companions = append(companions, t.CompanionsOnMission(m)...)
 	}
+
 	return companions
 }
 
@@ -156,6 +174,7 @@ func (t *AdventureTable) IdleCompanions() []*FollowerInfo {
 			idle = append(idle, info)
 		}
 	}
+
 	return idle
 }
 
@@ -165,6 +184,7 @@ func (t *AdventureTable) MissionsActive() []*MissionDetail {
 
 func (t *AdventureTable) MissionsComplete() []*MissionDetail {
 	completed := make([]*MissionDetail, 0, len(t.Missions))
+
 	for _, m := range t.Missions {
 		if m.IsComplete() {
 			completed = append(completed, m)
@@ -198,7 +218,12 @@ func (char *Character) Table(followerType GarrisonFollowerType) *AdventureTable 
 	if !hasTable {
 		return nil
 	}
+
 	return table
+}
+
+func (char *Character) String() string {
+	return fmt.Sprintf("%s-%s", char.Name, char.Realm)
 }
 
 type AddonData struct {
@@ -208,30 +233,37 @@ type AddonData struct {
 func (ad *AddonData) CharacterKeys() []string {
 	chars := maps.Keys(ad.Characters)
 	sort.Strings(chars)
+
 	return chars
 }
 
 func (ad *AddonData) NumMissionsActive(followerType GarrisonFollowerType) int {
 	var active int
+
 	for _, char := range ad.Characters {
 		table := char.Table(followerType)
 		if table == nil {
 			continue
 		}
+
 		active += len(table.MissionsActive())
 	}
+
 	return active
 }
 
 func (ad *AddonData) NumMissionsComplete(followerType GarrisonFollowerType) int {
 	var complete int
+
 	for _, char := range ad.Characters {
 		table := char.Table(followerType)
 		if table == nil {
 			continue
 		}
+
 		complete += len(table.MissionsComplete())
 	}
+
 	return complete
 }
 
@@ -244,13 +276,13 @@ func (ad *AddonData) print() {
 	for _, key := range ad.CharacterKeys() {
 		char := ad.Characters[key]
 		table := char.Table(FollowerType_9_0)
-		if table == nil {
+		if table == nil || len(table.Followers) == 0 {
 			continue
 		}
 
 		missions := table.MissionsActive()
 		log.Printf("\t%-30s M(%-2s / %2d) F(%-2s / %2d)\n",
-			color.CyanString("%-30s", adventureTableKey(char)),
+			color.CyanString("%-30s", char.String()),
 			color.GreenString("%2d", len(table.MissionsComplete())),
 			len(missions),
 			color.YellowString("%2d", len(table.IdleCompanions())),
@@ -272,24 +304,14 @@ func (ad *AddonData) print() {
 
 			shown++
 			// break loop if we're at max list length
-			if shown >= MAX_SHOW_NEXT_COMPLETE {
+			if shown >= MaxShowNextComplete {
 				break
 			}
 		}
 	}
 }
 
-// account.realm.character
-func characterKey(char *Character) string {
-	return fmt.Sprintf("%s.%s.%s", "Default", char.Realm, char.Name)
-}
-
-// character-realm
-func adventureTableKey(char *Character) string {
-	return fmt.Sprintf("%s-%s", char.Name, char.Realm)
-}
-
-// format a duration in HHh:MMm:SSs format
+// formatDuration returns a string in HHh:MMm:SSs format.
 func formatDuration(d time.Duration) string {
 	// use default duration format if only seconds
 	if d < time.Minute {

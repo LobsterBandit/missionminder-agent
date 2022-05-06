@@ -1,0 +1,102 @@
+# All available settings of specific linters.
+linters-settings:
+  # funlen:
+  #   # Checks the number of lines in a function.
+  #   # If lower than 0, disable the check.
+  #   # Default: 60
+  #   lines: -1
+  #   # Checks the number of statements in a function.
+  #   # If lower than 0, disable the check.
+  #   # Default: 40
+  #   statements: -1
+
+  govet:
+    # Report about shadowed variables.
+    # Default: false
+    check-shadowing: true
+
+  #   # Settings per analyzer.
+  #   settings:
+  #     # Analyzer name, run `go tool vet help` to see all analyzers.
+  #     printf:
+  #       # Run `go tool vet help printf` to see available settings for `printf` analyzer.
+  #       funcs:
+  #         - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+  #         - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+  #         - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+  #         - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+
+  #   # Disable all analyzers.
+  #   # Default: false
+  #   disable-all: true
+  #   # Enable analyzers by name.
+  #   # Run `go tool vet help` to see all analyzers.
+    enable:
+  #     - asmdecl
+
+    # Enable all analyzers.
+    # Default: false
+    enable-all: true
+  #   # Disable analyzers by name.
+  #   # Run `go tool vet help` to see all analyzers.
+  #   disable:
+  #     - asmdecl
+
+  # tagliatelle:
+  #   # Check the struck tag name case.
+  #   case:
+  #     # Use the struct field name to check the name of the struct tag.
+  #     # Default: false
+  #     use-field-name: true
+  #     rules:
+  #       # Any struct tag type can be used.
+  #       # Support string case: `camel`, `pascal`, `kebab`, `snake`, `goCamel`, `goPascal`, `goKebab`, `goSnake`, `upper`, `lower`
+  #       json: camel
+  #       yaml: camel
+  #       xml: camel
+  #       bson: camel
+  #       avro: snake
+  #       mapstructure: kebab
+
+linters:
+  # Enable specific linter
+  # https://golangci-lint.run/usage/linters/#enabled-by-default-linters
+  enable:
+    # - asciicheck
+
+  # Enable all available linters.
+  # Default: false
+  enable-all: true
+  # Disable specific linter
+  # https://golangci-lint.run/usage/linters/#disabled-by-default-linters--e--enable
+  disable:
+    - durationcheck
+    - forbidigo
+    - golint
+    - interfacer
+    - scopelint
+    # - maligned
+    - varnamelen
+
+  # Enable presets.
+  # https://golangci-lint.run/usage/linters
+  # presets:
+  #   - bugs
+
+issues:
+  exclude-rules:
+    - linters:
+        - wsl
+      text: "declarations should never be cuddled"
+    - linters:
+        - wsl
+      text: "only one cuddle assignment allowed before if statement"
+    - linters:
+        - wsl
+      text: "only one cuddle assignment allowed before range statement"
+    # - linters:
+    #     - wsl
+    #   text: "return statements should not be cuddled if block has more than two lines"
+    - linters:
+        - govet
+      text: "pointer bytes could be"
