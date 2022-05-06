@@ -1,0 +1,5 @@
+# pprof output
+*.out
+
+# binary
+missionminder-agent

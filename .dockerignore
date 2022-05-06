@@ -1,0 +1,8 @@
+.git
+.gitignore
+.golangci.yaml
+.vscode
+compose.yaml
+README.md
+LICENSE
+*.out
