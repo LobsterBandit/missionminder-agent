@@ -22,7 +22,7 @@ func main() {
 		close(end)
 	}()
 
-	if err := app.Run(ctx, cancel); err != nil {
+	if err := app.RunPrintLoop(ctx, cancel); err != nil {
 		log.Println(err)
 		cancel()
 	}

@@ -29,8 +29,6 @@ const (
 	FollowerType_8_0 GarrisonFollowerType = 22 //nolint:golint,revive
 	// Shadowlands follower type.
 	FollowerType_9_0 GarrisonFollowerType = 123 //nolint:golint,revive
-
-	MaxShowNextComplete int = 3 // max number of missions to show in list of next to complete
 )
 
 type XPReward struct {
@@ -346,51 +344,6 @@ func (d *Data) NumMissionsComplete(followerType GarrisonFollowerType) int {
 	}
 
 	return complete
-}
-
-func (d *Data) Print() {
-	log.Printf("%d characters, %d complete / %d active\n",
-		len(d.Characters),
-		d.NumMissionsComplete(FollowerType_9_0),
-		d.NumMissionsActive(FollowerType_9_0))
-
-	for _, key := range d.CharacterKeys() {
-		char := d.Characters[key]
-		table := char.Table(FollowerType_9_0)
-		if table == nil || len(table.Followers) == 0 {
-			continue
-		}
-
-		missions := table.MissionsActive()
-		log.Printf("\t%-30s M(%-2s / %2d) F(%-2s / %2d)\n",
-			color.CyanString("%-30s", char.String()),
-			color.GreenString("%2d", len(table.MissionsComplete())),
-			len(missions),
-			color.YellowString("%2d", len(table.IdleCompanions())),
-			table.NumCompanions())
-
-		sort.Slice(missions, func(i, j int) bool { return missions[i].MissionEndTime < missions[j].MissionEndTime })
-		var shown int
-		for _, m := range missions {
-			// skip completed missions
-			if m.IsComplete() {
-				continue
-			}
-
-			log.Printf("\t\t- %11s    (%d) [%2d] %-35s %s\n",
-				m.TimeRemaining(),
-				len(table.CompanionsOnMission(m)),
-				m.MissionScalar,
-				m.Name,
-				m.BonusReward())
-
-			shown++
-			// break loop if we're at max list length
-			if shown >= MaxShowNextComplete {
-				break
-			}
-		}
-	}
 }
 
 // formatDuration returns a string in HHh:MMm:SSs format.
