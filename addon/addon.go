@@ -1,6 +1,7 @@
 package addon
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -33,11 +34,15 @@ const (
 )
 
 type XPReward struct {
-	FollowerXP string
+	FollowerXP int
 	Icon       string
 	Name       string
 	Title      string
 	Tooltip    string
+}
+
+func (xr XPReward) String() string {
+	return fmt.Sprintf("%s", xr.Name)
 }
 
 type ItemReward struct {
@@ -46,11 +51,36 @@ type ItemReward struct {
 	Quantity int
 }
 
+func (ir ItemReward) String() string {
+	start := strings.Index(ir.ItemLink, "|h[")
+	if start == -1 {
+		return ""
+	}
+
+	end := strings.Index(ir.ItemLink, "]|h")
+	if end == -1 {
+		return ""
+	}
+
+	return fmt.Sprintf("[%s]x%d", ir.ItemLink[start+3:end], ir.Quantity)
+}
+
 type CurrencyReward struct {
 	CurrencyID int
-	Icon       string
+	Icon       interface{}
 	Quantity   int
 	Title      string
+}
+
+func (cr CurrencyReward) String() string {
+	var amt string
+	if cr.Title == "Money Reward" {
+		amt = fmt.Sprintf("%.4fg", float64(cr.Quantity)/100/100) //nolint:gomnd
+	} else {
+		amt = strconv.Itoa(cr.Quantity)
+	}
+
+	return fmt.Sprintf("%s: %s", cr.Title, amt)
 }
 
 type EncounterIconInfo struct {
@@ -95,6 +125,57 @@ type MissionDetail struct {
 
 func (m *MissionDetail) IsComplete() bool {
 	return (m.MissionEndTime - time.Now().Unix()) < 0
+}
+
+func (m *MissionDetail) BonusReward() string {
+	var b strings.Builder
+
+	fmt.Fprintf(&b, "[%dXP]", m.Xp)
+
+	for i, r := range m.Rewards {
+		if i > 0 {
+			fmt.Fprint(&b, "; ")
+		}
+
+		d, e := r.MarshalJSON()
+		if e != nil {
+			continue
+		}
+
+		switch {
+		case bytes.Contains(d, []byte(`"followerXP":`)):
+			var tmp XPReward
+			if err := json.Unmarshal(d, &tmp); err != nil {
+				log.Println(err)
+
+				continue
+			}
+
+			fmt.Fprint(&b, tmp)
+		case bytes.Contains(d, []byte(`"itemID":`)):
+			var tmp ItemReward
+			if err := json.Unmarshal(d, &tmp); err != nil {
+				log.Println(err)
+
+				continue
+			}
+
+			fmt.Fprint(&b, tmp)
+		case bytes.Contains(d, []byte(`"currencyID":`)):
+			var tmp CurrencyReward
+			if err := json.Unmarshal(d, &tmp); err != nil {
+				log.Println(err)
+
+				continue
+			}
+
+			fmt.Fprint(&b, tmp)
+		default:
+			log.Printf("unknown bonus reward: %s\n", string(d))
+		}
+	}
+
+	return b.String()
 }
 
 const (
@@ -296,11 +377,12 @@ func (d *Data) Print() {
 				continue
 			}
 
-			log.Printf("\t\t- %11s    (%d) [%2d] %-20s\n",
+			log.Printf("\t\t- %11s    (%d) [%2d] %-35s %s\n",
 				m.TimeRemaining(),
 				len(table.CompanionsOnMission(m)),
 				m.MissionScalar,
-				m.Name)
+				m.Name,
+				m.BonusReward())
 
 			shown++
 			// break loop if we're at max list length
